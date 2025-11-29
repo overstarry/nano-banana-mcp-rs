@@ -157,14 +157,62 @@
 }
 ```
 
+### Claude Code MCP 配置
+
+使用 `claude mcp add` 命令添加此 MCP 服务器到 Claude Code：
+
+#### 基础配置（使用默认保存目录）
+
+```bash
+claude mcp add -s project -t stdio \
+  -e OPENROUTER_API_KEY=sk-or-v1-你的真实API密钥 \
+  nanobanana nano-banana-mcp
+```
+
+#### 自定义保存目录（推荐）
+
+```bash
+# 项目级别配置
+claude mcp add -s project -t stdio \
+  -e OPENROUTER_API_KEY=sk-or-v1-你的真实API密钥 \
+  nanobanana nano-banana-mcp \
+  -- -s /absolute/path/to/your/images
+
+# 全局配置
+claude mcp add -s global -t stdio \
+  -e OPENROUTER_API_KEY=sk-or-v1-你的真实API密钥 \
+  nanobanana nano-banana-mcp \
+  -- -s /absolute/path/to/your/images
+```
+
+#### 使用编译后的可执行文件
+
+```bash
+# 先编译项目
+cargo build --release
+
+# 添加 MCP 服务器（使用绝对路径）
+claude mcp add -s project -t stdio \
+  -e OPENROUTER_API_KEY=sk-or-v1-你的真实API密钥 \
+  nanobanana /absolute/path/to/nano-banana-mcp-rs/target/release/nano-banana-mcp \
+  -- -s /absolute/path/to/images
+```
+
 **配置说明：**
-- `command`: nano-banana-mcp 可执行文件的完整路径
-- `--api-key`: 你的 OpenRouter API 密钥（请替换为实际密钥）
-- `--save-directory`: 图片保存目录（可选，默认为 `./images/`）
-- `--model`: 使用的模型（可选，默认为 `google/gemini-3-pro-image-preview`）
+- `-s project`: 项目级别配置（或使用 `global` 为全局配置）
+- `-t stdio`: 使用 stdio 传输方式
+- `-e OPENROUTER_API_KEY=xxx`: 设置 OpenRouter API 密钥环境变量
+- `nanobanana`: MCP 服务器名称（可自定义）
+- `nano-banana-mcp`: 可执行文件名或完整路径
+- `-- -s /path/to/images`: 图片保存目录（**必须是绝对路径**）
 
+**重要提示：**
+- ⚠️ `-s /path/to/images` 参数必须使用**绝对路径**，不能使用相对路径
+- ✅ 正确示例: `/home/user/images` 或 `C:\Users\user\images`
+- ❌ 错误示例: `./images` 或 `../images` 或 `images`
+- 🔑 请将 `sk-or-v1-你的真实API密钥` 替换为您的实际 OpenRouter API 密钥
 
-配置完成后，重启 Cursor 即可使用图像生成和编辑功能。
+配置完成后，重启 Claude Code 即可使用图像生成和编辑功能。
 
 ### API Key 设置
 
