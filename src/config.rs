@@ -42,23 +42,18 @@ impl OpenRouterConfig {
             .and_then(|v| v.parse::<u64>().ok());
 
         // 获取模型配置：优先命令行参数，然后环境变量，最后默认值
+        // 默认使用 OpenRouter 的 gemini 图像模型，如果使用第三方 API 服务（如 tu-zi.com），
+        // 可能需要设置其他模型名，例如：
+        //   - nano-banana (tu-zi.com 的 nano-banana 模型)
+        //   - gpt-4o-image (一些服务使用这个名称)
+        //   - google/gemini-2.5-flash-image-preview
+        //   - google/gemini-3-pro-image-preview
         let model = Self::get_model_from_args(&args)
             .or_else(|| env::var("MCP_MODEL").ok())
-            .unwrap_or_else(|| "google/gemini-3-pro-image-preview".to_string());
+            .unwrap_or_else(|| "google/gemini-2.5-flash-preview-06-17".to_string());
 
-        // 验证模型是否在支持的列表中
-        let supported_models = [
-            "google/gemini-2.5-flash-image-preview".to_string(),
-            "google/gemini-3-pro-image-preview".to_string(),
-        ];
-
-        if !supported_models.contains(&model) {
-            return Err(anyhow!(
-                "不支持的模型: {}。支持的模型: {}",
-                model,
-                supported_models.join(", ")
-            ));
-        }
+        // 不再验证模型名称，允许用户使用任意兼容 OpenAI chat/completions API 的模型
+        // 这样可以支持各种第三方 API 转发服务（如 tu-zi.com、one-api 等）
 
         Ok(Self {
             api_key,
