@@ -1,7 +1,7 @@
 [package]
 name = "nano-banana-mcp"
 version = "0.1.1"
-edition = "2021"
+edition = "2024"
 description = "Nano Banana MCP Server - 提供 OpenRouter API 访问 google/gemini-2.5-flash-image 模型"
 authors = ["Assistant"]
 license = "MIT"

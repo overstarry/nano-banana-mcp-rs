@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::env;
 
 #[derive(Debug, Clone)]
@@ -9,6 +9,7 @@ pub struct OpenRouterConfig {
     pub x_title: String,
     pub http_port: u16,
     pub model: String,
+    pub sse_keep_alive_secs: Option<u64>,
 }
 
 impl OpenRouterConfig {
@@ -24,32 +25,39 @@ impl OpenRouterConfig {
         let base_url = env::var("OPENROUTER_BASE_URL")
             .unwrap_or_else(|_| "https://openrouter.ai/api/v1".to_string());
 
-        let http_referer = env::var("HTTP_REFERER")
-            .unwrap_or_else(|_| "http://localhost:3000".to_string());
+        let http_referer =
+            env::var("HTTP_REFERER").unwrap_or_else(|_| "http://localhost:3000".to_string());
 
-        let x_title = env::var("X_TITLE")
-            .unwrap_or_else(|_| "OpenRouter MCP Server (Rust)".to_string());
+        let x_title =
+            env::var("X_TITLE").unwrap_or_else(|_| "OpenRouter MCP Server (Rust)".to_string());
 
         let http_port = env::var("MCP_HTTP_PORT")
             .unwrap_or_else(|_| "6621".to_string())
             .parse()
             .unwrap_or(6621);
 
+        // SSE keep-alive 配置（秒），可选
+        let sse_keep_alive_secs = env::var("MCP_SSE_KEEP_ALIVE_SECS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok());
+
         // 获取模型配置：优先命令行参数，然后环境变量，最后默认值
         let model = Self::get_model_from_args(&args)
             .or_else(|| env::var("MCP_MODEL").ok())
-            .unwrap_or_else(|| "google/gemini-2.5-flash-image-preview:free".to_string());
+            .unwrap_or_else(|| "google/gemini-3-pro-image-preview".to_string());
 
         // 验证模型是否在支持的列表中
-        let supported_models = vec![
-            "google/gemini-2.5-flash-image-preview:free".to_string(),
+        let supported_models = [
             "google/gemini-2.5-flash-image-preview".to_string(),
+            "google/gemini-3-pro-image-preview".to_string(),
         ];
-        
+
         if !supported_models.contains(&model) {
-            return Err(anyhow!("不支持的模型: {}。支持的模型: {}", 
-                model, 
-                supported_models.join(", ")));
+            return Err(anyhow!(
+                "不支持的模型: {}。支持的模型: {}",
+                model,
+                supported_models.join(", ")
+            ));
         }
 
         Ok(Self {
@@ -59,6 +67,7 @@ impl OpenRouterConfig {
             x_title,
             http_port,
             model,
+            sse_keep_alive_secs,
         })
     }
 
@@ -90,7 +99,7 @@ impl OpenRouterConfig {
 
     pub fn get_headers(&self) -> reqwest::header::HeaderMap {
         let mut headers = reqwest::header::HeaderMap::new();
-        
+
         headers.insert(
             reqwest::header::AUTHORIZATION,
             format!("Bearer {}", self.api_key).parse().unwrap(),
@@ -110,4 +119,4 @@ impl OpenRouterConfig {
 
         headers
     }
-} 
+}

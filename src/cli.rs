@@ -1,18 +1,13 @@
 use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
 pub enum TransportType {
+    #[default]
     #[value(name = "stdio")]
     Stdio,
     #[value(name = "sse")]
     Sse,
-}
-
-impl Default for TransportType {
-    fn default() -> Self {
-        Self::Stdio
-    }
 }
 
 #[derive(Debug, Parser)]
@@ -35,10 +30,15 @@ pub struct CliArgs {
     pub model: Option<String>,
 
     /// 设置图片保存目录 (必须是绝对路径)
-    #[arg(short = 's', long, env = "MCP_SAVE_DIRECTORY", help = "设置图片保存目录 (必须是绝对路径)")]
+    #[arg(
+        short = 's',
+        long,
+        env = "MCP_SAVE_DIRECTORY",
+        help = "设置图片保存目录 (必须是绝对路径)"
+    )]
     pub save_directory: Option<PathBuf>,
 }
 
 pub fn parse_args() -> CliArgs {
     CliArgs::parse()
-} 
+}

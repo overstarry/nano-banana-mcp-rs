@@ -150,7 +150,7 @@
         "--save-directory",
         "/path/to/your/images",
         "--model",
-        "google/gemini-2.5-flash-image-preview:free"
+        "google/gemini-3-pro-image-preview"
       ]
     }
   }
@@ -161,7 +161,7 @@
 - `command`: nano-banana-mcp 可执行文件的完整路径
 - `--api-key`: 你的 OpenRouter API 密钥（请替换为实际密钥）
 - `--save-directory`: 图片保存目录（可选，默认为 `./images/`）
-- `--model`: 使用的模型（可选，默认为 `google/gemini-2.5-flash-image-preview:free`）
+- `--model`: 使用的模型（可选，默认为 `google/gemini-3-pro-image-preview`）
 
 
 配置完成后，重启 Cursor 即可使用图像生成和编辑功能。
@@ -189,9 +189,10 @@
 ### 环境变量
 
 - `OPENROUTER_API_KEY`: OpenRouter API 密钥（必需，如果未通过命令行参数提供）
-- `MCP_MODEL`: 使用的模型（默认: `google/gemini-2.5-flash-image-preview:free`）
+- `MCP_MODEL`: 使用的模型（默认: `google/gemini-3-pro-image-preview`）
 - `MCP_HTTP_PORT`: SSE 传输时的 HTTP 端口（默认: 6621）
 - `MCP_SAVE_DIRECTORY`: 图片保存目录（必须是绝对路径，默认: `./images/`）
+- `MCP_SSE_KEEP_ALIVE_SECS`: SSE keep-alive 心跳间隔秒数（可选，未设置则不发送心跳）
 - `OPENROUTER_BASE_URL`: OpenRouter API 基础 URL（默认: `https://openrouter.ai/api/v1`）
 - `HTTP_REFERER`: HTTP Referer 头（默认: `http://localhost:3000`）
 - `X_TITLE`: X-Title 头（默认: `OpenRouter MCP Server (Rust)`）
@@ -204,12 +205,12 @@
 
 ### 支持的模型
 
-- `google/gemini-2.5-flash-image-preview:free` (默认)
+- `google/gemini-3-pro-image-preview` (默认)
 - `google/gemini-2.5-flash-image-preview`
 
 ### 默认设置
 
-- 默认模型: `google/gemini-2.5-flash-image-preview:free`
+- 默认模型: `google/gemini-3-pro-image-preview`
 - 默认图片保存目录: `./images/` (相对于当前工作目录)
 - 默认 HTTP 端口: `6621`
 - 自动创建保存目录（如果不存在）
