@@ -94,78 +94,120 @@ pub fn save_response_images(
     base_filename: Option<&str>,
     is_edit: bool,
 ) -> Vec<ImageInfo> {
-    if let Some(dir) = save_directory
-        && let Ok(_dir_path) = fs::canonicalize(dir)
-    {
+    // 如果没有指定保存目录，直接返回不保存的结果
+    let dir = match save_directory {
+        Some(d) => d,
+        None => {
+            return images
+                .iter()
+                .map(|img| {
+                    let image_url = img
+                        .get("image_url")
+                        .and_then(|url_obj| url_obj.get("url"))
+                        .and_then(|url| url.as_str())
+                        .unwrap_or("");
+                    ImageInfo {
+                        url: image_url.to_string(),
+                        saved_path: None,
+                        debug_info: String::new(),
+                    }
+                })
+                .collect();
+        }
+    };
+
+    let dir_path = Path::new(dir);
+
+    // 如果目录不存在，尝试创建
+    if !dir_path.exists() {
+        if let Err(e) = fs::create_dir_all(dir_path) {
+            return images
+                .iter()
+                .map(|img| {
+                    let image_url = img
+                        .get("image_url")
+                        .and_then(|url_obj| url_obj.get("url"))
+                        .and_then(|url| url.as_str())
+                        .unwrap_or("");
+                    ImageInfo {
+                        url: image_url.to_string(),
+                        saved_path: None,
+                        debug_info: format!("目录创建失败: {}", e),
+                    }
+                })
+                .collect();
+        }
+    }
+
+    // 再次检查目录是否有效
+    if !dir_path.is_dir() {
         return images
             .iter()
-            .enumerate()
-            .map(|(index, img)| {
+            .map(|img| {
                 let image_url = img
                     .get("image_url")
                     .and_then(|url_obj| url_obj.get("url"))
                     .and_then(|url| url.as_str())
                     .unwrap_or("");
-
-                let mut image_info = ImageInfo {
+                ImageInfo {
                     url: image_url.to_string(),
                     saved_path: None,
-                };
-
-                if image_url.starts_with("data:image/") {
-                    // 生成递增的文件名
-                    let filename = if let Some(base_name) = base_filename {
-                        if is_edit {
-                            // 编辑模式：保留原文件名，添加 "edited" 标记
-                            let base_with_edited = format!("{}_edited", base_name);
-                            generate_incremental_filename(&base_with_edited, "png", dir)
-                        } else {
-                            // 生成模式：使用基础名称
-                            generate_incremental_filename(base_name, "png", dir)
-                        }
-                    } else {
-                        // 默认文件名
-                        let default_name = if is_edit {
-                            "edited_image"
-                        } else {
-                            "generated_image"
-                        };
-                        generate_incremental_filename(
-                            &format!("{}_{}", default_name, index + 1),
-                            "png",
-                            dir,
-                        )
-                    };
-
-                    match save_base64_image(image_url, dir, Some(&filename)) {
-                        Ok(saved_path) => {
-                            image_info.saved_path = Some(saved_path);
-                        }
-                        Err(e) => {
-                            eprintln!("保存图像 {} 失败: {}", index + 1, e);
-                        }
-                    }
+                    debug_info: "路径不是有效目录".to_string(),
                 }
-
-                image_info
             })
             .collect();
     }
 
-    // 如果没有指定保存目录，只返回URL信息
+    // 保存图像
     images
         .iter()
-        .map(|img| {
+        .enumerate()
+        .map(|(index, img)| {
             let image_url = img
                 .get("image_url")
                 .and_then(|url_obj| url_obj.get("url"))
                 .and_then(|url| url.as_str())
                 .unwrap_or("");
 
-            ImageInfo {
+            let mut image_info = ImageInfo {
                 url: image_url.to_string(),
                 saved_path: None,
+                debug_info: String::new(),
+            };
+
+            if image_url.starts_with("data:image/") {
+                // 生成递增的文件名
+                let filename = if let Some(base_name) = base_filename {
+                    if is_edit {
+                        let base_with_edited = format!("{}_edited", base_name);
+                        generate_incremental_filename(&base_with_edited, "png", dir)
+                    } else {
+                        generate_incremental_filename(base_name, "png", dir)
+                    }
+                } else {
+                    let default_name = if is_edit {
+                        "edited_image"
+                    } else {
+                        "generated_image"
+                    };
+                    generate_incremental_filename(
+                        &format!("{}_{}", default_name, index + 1),
+                        "png",
+                        dir,
+                    )
+                };
+
+                match save_base64_image(image_url, dir, Some(&filename)) {
+                    Ok(saved_path) => {
+                        image_info.saved_path = Some(saved_path);
+                    }
+                    Err(e) => {
+                        image_info.debug_info = format!("保存失败: {}", e);
+                    }
+                }
             }
+
+            image_info
         })
         .collect()
 }
@@ -174,6 +216,7 @@ pub fn save_response_images(
 pub struct ImageInfo {
     pub url: String,
     pub saved_path: Option<String>,
+    pub debug_info: String,
 }
 
 /// 检测图片输入类型并返回标准化的内容格式

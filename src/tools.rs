@@ -65,11 +65,6 @@ impl OpenRouterServer {
 
                 match response.json::<serde_json::Value>().await {
                     Ok(response_data) => {
-                        eprintln!(
-                            "API 响应: {}",
-                            serde_json::to_string_pretty(&response_data)
-                                .unwrap_or_else(|_| "无法序列化响应".to_string())
-                        );
                         let (content, images_array) = extract_text_and_images(&response_data)?;
 
                         let current_save_dir = {
@@ -84,8 +79,8 @@ impl OpenRouterServer {
                         );
 
                         let mut response_text = format!(
-                            "**模型:** {}\n**提示词:** {}\n**响应:** {}",
-                            model, args.prompt, content
+                            "**模型:** {}\n**提示词:** {}\n**保存目录:** {}\n**响应:** {}",
+                            model, args.prompt, current_save_dir, content
                         );
                         if !images_array.is_empty() {
                             response_text.push_str(&format!(
@@ -101,6 +96,13 @@ impl OpenRouterServer {
                                 if let Some(saved_path) = &img_info.saved_path {
                                     response_text
                                         .push_str(&format!("\n  已保存到: {}", saved_path));
+                                } else {
+                                    response_text
+                                        .push_str("\n  ⚠️ 未保存到文件");
+                                }
+                                if !img_info.debug_info.is_empty() {
+                                    response_text
+                                        .push_str(&format!("\n  [调试] {}", img_info.debug_info));
                                 }
                             }
                         }
@@ -187,8 +189,7 @@ impl OpenRouterServer {
                                 "image_url": {"url": image_content.data}
                             }));
                         }
-                        Err(e) => {
-                            eprintln!("处理图像输入 '{}' 失败: {}", image_input, e);
+                        Err(_) => {
                             content.push(json!({
                                 "type": "image_url",
                                 "image_url": {"url": image_input}
@@ -225,11 +226,6 @@ impl OpenRouterServer {
 
                 match response.json::<serde_json::Value>().await {
                     Ok(response_data) => {
-                        eprintln!(
-                            "API 响应: {}",
-                            serde_json::to_string_pretty(&response_data)
-                                .unwrap_or_else(|_| "无法序列化响应".to_string())
-                        );
                         let (content, images_array) = extract_text_and_images(&response_data)?;
 
                         let current_save_dir = {
@@ -316,6 +312,44 @@ impl OpenRouterServer {
     }
 }
 
+/// 从 markdown 文本中提取嵌入的 base64 图像，并返回清理后的文本
+/// 匹配格式: ![...](data:image/...;base64,...)
+/// 返回: (清理后的文本, 提取的图片URLs)
+fn extract_images_from_markdown(text: &str) -> (String, Vec<String>) {
+    let mut images = Vec::new();
+    let mut cleaned_text = text.to_string();
+
+    // 使用循环查找并替换所有的 markdown 图片
+    loop {
+        if let Some(start_idx) = cleaned_text.find("![") {
+            let remaining = &cleaned_text[start_idx..];
+            // 找到 ](
+            if let Some(paren_idx) = remaining.find("](") {
+                let after_paren = &remaining[paren_idx + 2..];
+                // 检查是否是 data:image
+                if after_paren.starts_with("data:image/") {
+                    // 找到匹配的 )
+                    if let Some(end_idx) = after_paren.find(')') {
+                        let data_url = &after_paren[..end_idx];
+                        images.push(data_url.to_string());
+
+                        // 从文本中移除整个 markdown 图片语法
+                        let full_match_end = start_idx + paren_idx + 2 + end_idx + 1;
+                        cleaned_text.replace_range(start_idx..full_match_end, "");
+                        continue;
+                    }
+                }
+            }
+            // 如果没匹配到完整的 markdown 图片，跳过这个 ![
+            cleaned_text.replace_range(start_idx..start_idx+2, "");
+        } else {
+            break;
+        }
+    }
+
+    (cleaned_text.trim().to_string(), images)
+}
+
 /// 从 OpenRouter/Gemini 等兼容响应中提取文本和图像
 fn extract_text_and_images(response: &Value) -> Result<(String, Vec<Value>), McpError> {
     // 1) 规范错误字段
@@ -370,7 +404,15 @@ fn extract_text_and_images(response: &Value) -> Result<(String, Vec<Value>), Mcp
 
     match content_field {
         Value::String(s) => {
-            texts.push(s.clone());
+            // 先尝试从文本中提取嵌入的 base64 图像，并获取清理后的文本
+            let (cleaned_text, embedded_images) = extract_images_from_markdown(s);
+            for img_url in embedded_images {
+                images.push(json!({ "image_url": { "url": img_url } }));
+            }
+            // 只保存清理后的文本（移除了base64图片）
+            if !cleaned_text.is_empty() {
+                texts.push(cleaned_text);
+            }
         }
         Value::Array(parts) => {
             for part in parts {
@@ -378,7 +420,15 @@ fn extract_text_and_images(response: &Value) -> Result<(String, Vec<Value>), Mcp
                 match part_type {
                     "text" => {
                         if let Some(t) = part.get("text").and_then(|t| t.as_str()) {
-                            texts.push(t.to_string());
+                            // 先尝试从文本中提取嵌入的 base64 图像，并获取清理后的文本
+                            let (cleaned_text, embedded_images) = extract_images_from_markdown(t);
+                            for img_url in embedded_images {
+                                images.push(json!({ "image_url": { "url": img_url } }));
+                            }
+                            // 只保存清理后的文本（移除了base64图片）
+                            if !cleaned_text.is_empty() {
+                                texts.push(cleaned_text);
+                            }
                         }
                     }
                     "image_url" => {
